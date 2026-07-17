@@ -32,13 +32,15 @@ from ..mixins import ComponentMixin
 from ..icons import icon
 from ..cq_utils import to_occ_color, make_AIS, DEFAULT_FACE_COLOR
 
-from .occt_widget import OCCTWidget
+from .occt_widget import OCCTWidget, SELECTION_MODES
 
 from pyqtgraph.parametertree import Parameter
 import qtawesome as qta
 
 DEFAULT_EDGE_COLOR = Quantity_Color(BLACK)
 DEFAULT_EDGE_WIDTH = 2
+
+SELECTION_MODE_ICONS = ("fa5s.cube", "fa5s.square", "fa5s.slash", "fa5s.circle")
 
 
 class OCCViewer(QWidget, ComponentMixin):
@@ -106,6 +108,7 @@ class OCCViewer(QWidget, ComponentMixin):
     IMAGE_EXTENSIONS = "png"
 
     sigObjectSelected = pyqtSignal(list)
+    sigShapePicked = pyqtSignal(object)
 
     def __init__(self, parent=None):
 
@@ -186,8 +189,25 @@ class OCCViewer(QWidget, ComponentMixin):
 
     def create_actions(self, parent):
 
+        self._selection_actions = []
+        for index, (name, _) in enumerate(SELECTION_MODES):
+            action = QAction(
+                qta.icon(SELECTION_MODE_ICONS[index]),
+                f"Select: {name}",
+                parent,
+                checkable=True,
+                triggered=lambda checked, i=index: self.set_selection_mode(i),
+            )
+            action.setChecked(index == 0)
+            self._selection_actions.append(action)
+
+        self._selection_separator = QAction(parent)
+        self._selection_separator.setSeparator(True)
+
         self._actions = {
             "View": [
+                *self._selection_actions,
+                self._selection_separator,
                 QAction(
                     qta.icon("fa6s.maximize"),
                     "Fit (Shift+F1)",
@@ -273,6 +293,15 @@ class OCCViewer(QWidget, ComponentMixin):
 
         return self._actions["View"]
 
+    def set_selection_mode(self, index):
+
+        self.canvas.set_selection_mode(index)
+
+        for i, action in enumerate(self._selection_actions):
+            action.blockSignals(True)
+            action.setChecked(i == index)
+            action.blockSignals(False)
+
     def clear(self):
 
         self.displayed_shapes = []
@@ -297,6 +326,7 @@ class OCCViewer(QWidget, ComponentMixin):
 
         context = self._get_context()
         context.Display(ais, True)
+        self.canvas.apply_selection_mode()
 
         if self.preferences["Fit automatically"]:
             self.fit()
@@ -307,6 +337,7 @@ class OCCViewer(QWidget, ComponentMixin):
         context = self._get_context()
         for ais in ais_list:
             context.Display(ais, False)
+        self.canvas.apply_selection_mode()
 
         if self.preferences["Fit automatically"] and fit is None:
             self.fit()
@@ -324,6 +355,7 @@ class OCCViewer(QWidget, ComponentMixin):
         ctx = self._get_context()
         if item.checkState(0):
             ctx.Display(item.ais, True)
+            self.canvas.apply_selection_mode()
         else:
             ctx.Erase(item.ais, True)
 
@@ -484,6 +516,7 @@ class OCCViewer(QWidget, ComponentMixin):
     def handle_selection(self, obj):
 
         self.sigObjectSelected.emit(obj)
+        self.sigShapePicked.emit(obj[0] if obj else None)
 
     @pyqtSlot(list)
     def set_selected(self, ais):

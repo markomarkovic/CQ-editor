@@ -11,6 +11,8 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
+import cadquery as cq
+
 from OCP.AIS import AIS_Line
 from OCP.Geom import Geom_CartesianPoint
 from OCP.gp import gp_Pnt
@@ -20,7 +22,10 @@ from ..mixins import ComponentMixin
 from ..icons import icon
 from ..cq_utils import (
     make_AIS,
+    describe_shape,
+    summarize_shape,
     export,
+    subshape_index,
     to_occ_color,
     is_obj_empty,
     get_occ_color,
@@ -144,6 +149,8 @@ class ObjectTree(QWidget, ComponentMixin):
     sigItemChanged = pyqtSignal(QTreeWidgetItem, int)
     sigObjectPropertiesChanged = pyqtSignal()
     sigHelpersResized = pyqtSignal(list)
+    sigShapeDescribed = pyqtSignal(object)
+    sigStatusText = pyqtSignal(str)
 
     def __init__(self, parent):
 
@@ -572,6 +579,57 @@ class ObjectTree(QWidget, ComponentMixin):
                 continue
             if any(ais.Shape().IsEqual(shape) for shape in shapes):
                 item.setSelected(True)
+
+    @pyqtSlot(object)
+    def describeSelection(self, topods_shape):
+        """
+        Log a description of the picked sub-shape, summarise it in the status
+        bar, and expose it in the console as `sel`. The index is only valid for
+        the current geometry - any script edit renumbers the sub-shapes, unlike
+        the geometric properties.
+        """
+
+        if topods_shape is None:
+            self.sigStatusText.emit("")
+            return
+
+        accessor = {
+            "Face": "faces()",
+            "Edge": "edges()",
+            "Vertex": "vertices()",
+        }
+
+        for i in range(self.CQ.childCount()):
+            item = self.CQ.child(i)
+            if item.shape_display is None:
+                continue
+
+            index = subshape_index(item.shape_display, topods_shape)
+            if index is None:
+                continue
+
+            shape = cq.Shape.cast(topods_shape)
+            name = item.properties["Name"]
+            shape_type = shape.ShapeType()
+            location = accessor.get(shape_type, "")
+
+            selector = f" -> {name}.{location}[{index}]" if location else ""
+            print(
+                f"\n{shape_type} #{index} of '{name}'{selector}\n"
+                f"{describe_shape(shape)}\n"
+                f"  console  : sel"
+            )
+
+            # the status bar stays terse: no selector, and only face/edge get a
+            # geomType tag (it just repeats the type for solids and vertices)
+            tag = f" [{shape.geomType()}]" if location and shape_type != "Vertex" else ""
+            self.sigStatusText.emit(
+                f"{shape_type} #{index} of '{name}'{tag}: {summarize_shape(shape)}"
+            )
+            self.sigShapeDescribed.emit(shape)
+            return
+
+        self.sigStatusText.emit("")
 
     @pyqtSlot(QTreeWidgetItem, int)
     def handleChecked(self, item, col):
