@@ -2233,3 +2233,56 @@ def test_editor_autoreload(editor):
 #     with qtbot.waitSignal(editor.triggerRerender, timeout=TIMEOUT):
 #         # modify file - NB: separate process is needed to avoid Windows quirks
 #         modify_file(code_nested_bottom, "test_nested_bottom.py")
+
+
+def test_selection_modes(main):
+
+    qtbot, win = main
+    viewer = win.components["viewer"]
+
+    # one toolbar action per selection mode, Solid armed by default
+    assert len(viewer._selection_actions) == 4
+    assert [a.isChecked() for a in viewer._selection_actions] == [
+        True,
+        False,
+        False,
+        False,
+    ]
+
+    # switching updates the canvas and checks exactly the chosen action
+    viewer.set_selection_mode(2)
+    assert viewer.canvas.selection_mode == 2
+    assert [a.isChecked() for a in viewer._selection_actions] == [
+        False,
+        False,
+        True,
+        False,
+    ]
+
+
+def test_describe_selection(main):
+
+    qtbot, win = main
+    tree = win.components["object_tree"]
+
+    status = []
+    tree.sigStatusText.connect(status.append)
+    described = []
+    tree.sigShapeDescribed.connect(described.append)
+
+    # pick a face of the rendered object straight from its stored shape
+    item = tree.CQ.child(0)
+    face = item.shape_display.Faces()[2].wrapped
+    tree.describeSelection(face)
+
+    assert described and described[-1].ShapeType() == "Face"
+    assert status[-1].startswith("Face #2 of ")
+    assert "mm²" in status[-1]
+
+    # the picked shape is exposed in the console as `sel`
+    user_ns = win.components["console"].kernel_manager.kernel.shell.user_ns
+    assert user_ns.get("sel") is not None
+
+    # clearing the selection clears the status bar
+    tree.describeSelection(None)
+    assert status[-1] == ""
