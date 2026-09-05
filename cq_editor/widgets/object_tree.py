@@ -622,7 +622,9 @@ class ObjectTree(QWidget, ComponentMixin):
 
             # the status bar stays terse: no selector, and only face/edge get a
             # geomType tag (it just repeats the type for solids and vertices)
-            tag = f" [{shape.geomType()}]" if location and shape_type != "Vertex" else ""
+            tag = (
+                f" [{shape.geomType()}]" if location and shape_type != "Vertex" else ""
+            )
             self.sigStatusText.emit(
                 f"{shape_type} #{index} of '{name}'{tag}: {summarize_shape(shape)}"
             )
