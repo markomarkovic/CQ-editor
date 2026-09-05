@@ -16,10 +16,13 @@ from OCP.AIS import (
     AIS_InteractiveContext,
     AIS_DisplayMode,
     AIS_ViewCubeOwner,
+    AIS_ListOfInteractive,
+    AIS_Shape,
 )
 from OCP.Graphic3d import Graphic3d_Camera
 from OCP.Quantity import Quantity_Color
 from OCP.TCollection import TCollection_AsciiString
+from OCP.TopAbs import TopAbs_ShapeEnum
 
 from .navigation_cube import ANIMATION_DURATION, NavigationCube, RotationArrow
 
@@ -27,6 +30,14 @@ ZOOM_STEP = 0.9
 # Pixel delta fed to ZoomAtPoint so a wheel notch matches SetZoom(1 / ZOOM_STEP).
 # OCCT derives its coefficient as |delta| / 100 + 1.
 ZOOM_AT_POINT_STEP = round((1 / ZOOM_STEP - 1) * 100)
+
+# What a click picks in the 3D view; order defines the cycling order
+SELECTION_MODES = (
+    ("Solid", TopAbs_ShapeEnum.TopAbs_SHAPE),
+    ("Face", TopAbs_ShapeEnum.TopAbs_FACE),
+    ("Edge", TopAbs_ShapeEnum.TopAbs_EDGE),
+    ("Vertex", TopAbs_ShapeEnum.TopAbs_VERTEX),
+)
 
 
 class OCCTWidget(QWidget):
@@ -66,6 +77,9 @@ class OCCTWidget(QWidget):
 
         # Zoom towards the cursor instead of the view center
         self._zoom_to_cursor = False
+
+        # Index into SELECTION_MODES
+        self.selection_mode = 0
 
         # OCCT secific things
         self.display_connection = Aspect_DisplayConnection()
@@ -125,6 +139,33 @@ class OCCTWidget(QWidget):
     def set_zoom_to_cursor(self, enabled):
 
         self._zoom_to_cursor = enabled
+
+    def set_selection_mode(self, index):
+        """
+        Change what a click picks and re-arm the displayed shapes.
+        """
+
+        self.selection_mode = index
+        self.context.ClearSelected(False)
+        self.apply_selection_mode()
+        self.context.UpdateCurrentViewer()
+
+    def apply_selection_mode(self):
+        """
+        Arm the current selection mode on every displayed shape. Must be
+        called again whenever an object is displayed, since AIS activates
+        its default selection mode on display.
+        """
+
+        mode = AIS_Shape.SelectionMode_s(SELECTION_MODES[self.selection_mode][1])
+
+        displayed = AIS_ListOfInteractive()
+        self.context.DisplayedObjects(displayed)
+
+        for ais in displayed:
+            if isinstance(ais, AIS_Shape):
+                self.context.Deactivate(ais)
+                self.context.Activate(ais, mode)
 
     def wheelEvent(self, event):
 

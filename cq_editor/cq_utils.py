@@ -1,12 +1,17 @@
 import cadquery as cq
 from cadquery.occ_impl.assembly import toCAF
 
-from typing import List, Union
+from typing import List, Optional, Union
 from importlib import reload
+from math import floor, log10
 from types import SimpleNamespace
 
 from OCP.XCAFPrs import XCAFPrs_AISObject
+from OCP.BRepAdaptor import BRepAdaptor_Surface
+from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Sphere
+from OCP.TopExp import TopExp
 from OCP.TopoDS import TopoDS_Shape
+from OCP.TopTools import TopTools_IndexedMapOfShape
 from OCP.AIS import AIS_InteractiveObject, AIS_Shape
 from OCP.Quantity import (
     Quantity_TOC_RGB as TOC_RGB,
@@ -114,6 +119,135 @@ def make_AIS(
         set_edge_color(ais, to_occ_color(options["edgecolor"]))
 
     return ais, shape
+
+
+def subshape_index(
+    parent: Union[cq.Shape, TopoDS_Shape], sub: TopoDS_Shape
+) -> Optional[int]:
+    """
+    Index of `sub` within `parent.Faces()`/`.Edges()`/`.Vertices()`.
+
+    Relies on cq.Shape._entities() using the same TopTools_IndexedMapOfShape
+    ordering. Returns None if `sub` does not belong to `parent`.
+    """
+
+    parent_shape = parent.wrapped if hasattr(parent, "wrapped") else parent
+
+    shape_map = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(parent_shape, sub.ShapeType(), shape_map)
+    index = shape_map.FindIndex(sub)
+
+    return index - 1 if index > 0 else None
+
+
+def _fmt_vec(v: cq.Vector) -> str:
+
+    return f"({v.x:.6g}, {v.y:.6g}, {v.z:.6g})"
+
+
+def describe_shape(shape: cq.Shape) -> str:
+    """
+    Human readable geometric description of a face/edge/vertex, detailed
+    enough to reconstruct a CadQuery selector for it.
+    """
+
+    geom_type = shape.geomType()
+    lines = [
+        f"  geomType : {geom_type}",
+        f"  center   : {_fmt_vec(shape.Center())}",
+    ]
+
+    if isinstance(shape, cq.Face):
+        lines.append(f"  normal   : {_fmt_vec(shape.normalAt())}")
+        lines.append(f"  area     : {shape.Area():.6g}")
+    elif isinstance(shape, cq.Edge):
+        lines.append(f"  length   : {shape.Length():.6g}")
+        lines.append(f"  start    : {_fmt_vec(shape.startPoint())}")
+        lines.append(f"  end      : {_fmt_vec(shape.endPoint())}")
+        if geom_type in ("CIRCLE", "ELLIPSE"):
+            lines.append(f"  arcCenter: {_fmt_vec(shape.arcCenter())}")
+        if geom_type == "CIRCLE":
+            lines.append(f"  radius   : {shape.radius():.6g}")
+
+    bb = shape.BoundingBox()
+    lines.append(
+        f"  bbox     : x [{bb.xmin:.6g}, {bb.xmax:.6g}] "
+        f"y [{bb.ymin:.6g}, {bb.ymax:.6g}] "
+        f"z [{bb.zmin:.6g}, {bb.zmax:.6g}]"
+    )
+
+    return "\n".join(lines)
+
+
+def _num(x: float, sig: int = 4) -> str:
+    """
+    Round to `sig` significant figures but always in plain decimal, never
+    scientific notation, so large values read as e.g. "40000" not "4e+04".
+    """
+
+    if abs(x) < 1e-9:
+        return "0"
+
+    decimals = max(0, sig - 1 - floor(log10(abs(x))))
+    text = f"{x:.{decimals}f}"
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def _fmt_pt(v: cq.Vector) -> str:
+
+    return f"({_num(v.x)}, {_num(v.y)}, {_num(v.z)})"
+
+
+def _face_radius(face: cq.Face) -> Optional[float]:
+    """Single radius of a cylindrical or spherical face, else None."""
+
+    surface = BRepAdaptor_Surface(face.wrapped)
+    surface_type = surface.GetType()
+    if surface_type == GeomAbs_Cylinder:
+        return surface.Cylinder().Radius()
+    if surface_type == GeomAbs_Sphere:
+        return surface.Sphere().Radius()
+    return None
+
+
+def summarize_shape(shape: cq.Shape) -> str:
+    """
+    One-line metric summary of a picked sub-shape for the status bar. Units
+    are assumed to be millimetres, as CadQuery geometry is unitless.
+    """
+
+    shape_type = shape.ShapeType()
+
+    if shape_type == "Vertex":
+        return _fmt_pt(shape.Center())
+
+    if shape_type == "Edge":
+        parts = [f"{_num(shape.Length())} mm"]
+        if shape.geomType() in ("CIRCLE", "ELLIPSE"):
+            try:
+                parts.append(f"r {_num(shape.radius())} mm")
+            except Exception:
+                pass
+            parts.append(f"center {_fmt_pt(shape.arcCenter())}")
+        return ", ".join(parts)
+
+    if shape_type == "Face":
+        parts = [f"{_num(shape.Area())} mm²"]
+        if shape.geomType() == "PLANE":
+            parts.append(f"normal {_fmt_pt(shape.normalAt())}")
+        else:
+            radius = _face_radius(shape)
+            if radius is not None:
+                parts.append(f"r {_num(radius)} mm")
+        return ", ".join(parts)
+
+    # Solid / Compound / CompSolid / Shell - the whole picked object
+    bb = shape.BoundingBox()
+    return (
+        f"{_num(shape.Volume())} mm³, {_num(shape.Area())} mm², "
+        f"bbox {_num(bb.xmax - bb.xmin)} × {_num(bb.ymax - bb.ymin)} "
+        f"× {_num(bb.zmax - bb.zmin)} mm"
+    )
 
 
 def export(

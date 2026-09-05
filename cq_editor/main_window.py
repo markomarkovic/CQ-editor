@@ -498,6 +498,13 @@ class MainWindow(QMainWindow, MainMixin):
         self.components["viewer"].sigObjectSelected.connect(
             self.components["object_tree"].handleGraphicalSelection
         )
+        self.components["viewer"].sigShapePicked.connect(
+            self.components["object_tree"].describeSelection
+        )
+        self.components["object_tree"].sigShapeDescribed.connect(
+            lambda shape: self.components["console"].push_vars({"sel": shape})
+        )
+        self.components["object_tree"].sigStatusText.connect(self.update_statusbar)
 
         self.components["traceback_viewer"].sigHighlightLine.connect(
             self.components["editor"].go_to_line
