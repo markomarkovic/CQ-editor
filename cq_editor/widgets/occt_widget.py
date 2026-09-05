@@ -151,9 +151,7 @@ class OCCTWidget(QWidget):
             if self.view_cube.hit_region(self.width()).contains(pos):
                 self.context.MoveTo(x, y, self.view, True)
                 owner = (
-                    self.context.DetectedOwner()
-                    if self.context.HasDetected()
-                    else None
+                    self.context.DetectedOwner() if self.context.HasDetected() else None
                 )
                 detected = self._detected_interactive()
                 if not isinstance(owner, AIS_ViewCubeOwner) and not isinstance(
@@ -223,9 +221,7 @@ class OCCTWidget(QWidget):
                 self.context.MoveTo(x, y, self.view, True)
 
                 owner = (
-                    self.context.DetectedOwner()
-                    if self.context.HasDetected()
-                    else None
+                    self.context.DetectedOwner() if self.context.HasDetected() else None
                 )
                 detected = self._detected_interactive()
                 if isinstance(owner, AIS_ViewCubeOwner):

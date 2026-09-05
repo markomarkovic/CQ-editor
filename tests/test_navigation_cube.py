@@ -161,9 +161,7 @@ def test_cube_click_during_animation_settles_previous(viewer):
     v.display(box)
 
     canvas.view_cube.SetDuration(0.15)
-    corner = AIS_ViewCubeOwner(
-        canvas.view_cube, V3d_TypeOfOrientation.V3d_XposYposZpos
-    )
+    corner = AIS_ViewCubeOwner(canvas.view_cube, V3d_TypeOfOrientation.V3d_XposYposZpos)
     canvas.context.MoveTo(0, 0, canvas.view, True)
 
     v.top_view()

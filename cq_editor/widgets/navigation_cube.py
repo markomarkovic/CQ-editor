@@ -148,13 +148,9 @@ class RotationArrow(AIS_Shape):
         for i in range(ARC_SEGMENTS + 1):
             step = (ARROW_HEAD_ANGLE - ARROW_TAIL_ANGLE) * i / ARC_SEGMENTS
             polygon.Add(polar(ARROW_OUTER_RADIUS, ARROW_TAIL_ANGLE + step))
-        polygon.Add(
-            polar(ARROW_OUTER_RADIUS + ARROW_HEAD_OVERHANG, ARROW_HEAD_ANGLE)
-        )
+        polygon.Add(polar(ARROW_OUTER_RADIUS + ARROW_HEAD_OVERHANG, ARROW_HEAD_ANGLE))
         polygon.Add(polar(mid, ARROW_HEAD_ANGLE - ARROW_TIP_SWEEP))
-        polygon.Add(
-            polar(ARROW_INNER_RADIUS - ARROW_HEAD_OVERHANG, ARROW_HEAD_ANGLE)
-        )
+        polygon.Add(polar(ARROW_INNER_RADIUS - ARROW_HEAD_OVERHANG, ARROW_HEAD_ANGLE))
         for i in range(ARC_SEGMENTS + 1):
             step = (ARROW_TAIL_ANGLE - ARROW_HEAD_ANGLE) * i / ARC_SEGMENTS
             polygon.Add(polar(ARROW_INNER_RADIUS, ARROW_HEAD_ANGLE + step))
