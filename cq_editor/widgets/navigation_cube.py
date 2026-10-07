@@ -16,8 +16,6 @@ from OCP.Graphic3d import (
 )
 from OCP.Font import Font_FontAspect
 from OCP.Quantity import Quantity_Color, Quantity_TOC_RGB
-from OCP.TCollection import TCollection_AsciiString
-from OCP.V3d import V3d_TypeOfOrientation
 
 CORNER_OFFSET = 85
 SIZE = 55
@@ -73,15 +71,6 @@ class NavigationCube(AIS_ViewCube):
         self.SetBoxColor(Quantity_Color(0.72, 0.72, 0.75, Quantity_TOC_RGB))
         self.SetTextColor(Quantity_Color(0.0, 0.0, 0.0, Quantity_TOC_RGB))
         self.SetDrawAxes(False)
-
-        # OCCT labels FRONT on the -Y face; CQ-editor's toolbar Front action
-        # looks from +Y, so swap the two labels to keep them consistent
-        self.SetBoxSideLabel(
-            V3d_TypeOfOrientation.V3d_Ypos, TCollection_AsciiString("FRONT")
-        )
-        self.SetBoxSideLabel(
-            V3d_TypeOfOrientation.V3d_Yneg, TCollection_AsciiString("BACK")
-        )
 
         self.SetDuration(ANIMATION_DURATION)
         self.SetAutoStartAnimation(True)

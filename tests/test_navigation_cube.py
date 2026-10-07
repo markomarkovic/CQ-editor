@@ -31,12 +31,13 @@ def test_hit_region():
 
 def test_cube_front_matches_toolbar_front():
 
-    # the toolbar's Front action looks from +Y (OCCViewer.front_view uses
-    # SetProj(0, 1, 0)), so the cube face seen from +Y must be labeled FRONT
+    # FreeCAD convention: the toolbar's Front action looks from -Y
+    # (OCCViewer.front_view uses SetProj(0, -1, 0)), so the cube face seen
+    # from -Y must be labeled FRONT
     cube = NavigationCube()
 
-    assert cube.BoxSideLabel(V3d_TypeOfOrientation.V3d_Ypos).ToCString() == "FRONT"
-    assert cube.BoxSideLabel(V3d_TypeOfOrientation.V3d_Yneg).ToCString() == "BACK"
+    assert cube.BoxSideLabel(V3d_TypeOfOrientation.V3d_Yneg).ToCString() == "FRONT"
+    assert cube.BoxSideLabel(V3d_TypeOfOrientation.V3d_Ypos).ToCString() == "BACK"
 
 
 @pytest.fixture
