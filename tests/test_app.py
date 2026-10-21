@@ -2856,6 +2856,22 @@ def test_assembly_part_colors_survive_display_modes(main):
     check_colors()
 
 
+def test_mode_and_axis_columns_keep_their_compact_width(main):
+    from cq_editor.widgets.object_tree import MODE_COLUMN_WIDTH
+
+    qtbot, win = main
+
+    object_tree = win.components["object_tree"]
+
+    # the style's minimum section size must not widen them
+    assert [object_tree.tree.columnWidth(c) for c in range(4)] == [
+        MODE_COLUMN_WIDTH
+    ] * 4
+    assert [object_tree.helpers_tree.columnWidth(c) for c in range(3)] == [
+        MODE_COLUMN_WIDTH
+    ] * 3
+
+
 def test_header_icons_are_centered_in_their_columns(main):
     qtbot, win = main
 

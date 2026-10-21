@@ -372,6 +372,9 @@ class ObjectTree(QWidget, ComponentMixin):
         # In a narrow panel a scrollbar would cover the single row.
         helpers_tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         helpers_tree.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # The style's minimum section size (38px under Fusion) would otherwise
+        # silently override MODE_COLUMN_WIDTH.
+        helpers_tree.header().setMinimumSectionSize(MODE_COLUMN_WIDTH)
         helpers_header_item = helpers_tree.headerItem()
         for col in range(3):
             helpers_header_item.setTextAlignment(col, Qt.AlignCenter)
@@ -397,6 +400,7 @@ class ObjectTree(QWidget, ComponentMixin):
         # section width.
         tree.setTreePosition(NAME_COL)
 
+        header.setMinimumSectionSize(MODE_COLUMN_WIDTH)  # see helpers_tree
         header_item = tree.headerItem()
         for col, (icon_name, mode) in enumerate(zip(MODE_COLUMN_ICONS, OBJECT_MODES)):
             header.set_column_icon(col, icon_name)
