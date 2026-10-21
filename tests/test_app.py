@@ -2485,8 +2485,8 @@ def test_setting_the_mode_programmatically_updates_the_radios(main):
     assert not item.mode_group.button(SHADED_COL).isChecked()
 
 
-def test_helpers_keep_a_checkbox_in_the_name_column(main):
-    from cq_editor.widgets.object_tree import NAME_COL
+def test_helpers_keep_a_left_aligned_checkbox(main):
+    from cq_editor.widgets.object_tree import HELPER_COL
 
     qtbot, win = main
 
@@ -2495,15 +2495,17 @@ def test_helpers_keep_a_checkbox_in_the_name_column(main):
     ctx = viewer._get_context()
 
     helper = object_tree.Helpers.child(0)
-    assert helper.checkState(NAME_COL) == Qt.Checked
+    assert helper.isFirstColumnSpanned()
+    assert helper.text(HELPER_COL) == "X"
+    assert helper.checkState(HELPER_COL) == Qt.Checked
     assert ctx.IsDisplayed(helper.ais)
 
-    helper.setCheckState(NAME_COL, Qt.Unchecked)
+    helper.setCheckState(HELPER_COL, Qt.Unchecked)
     assert not ctx.IsDisplayed(helper.ais)
 
 
 def test_global_override_does_not_touch_helpers(main):
-    from cq_editor.widgets.object_tree import NAME_COL
+    from cq_editor.widgets.object_tree import HELPER_COL
 
     qtbot, win = main
 
@@ -2514,7 +2516,7 @@ def test_global_override_does_not_touch_helpers(main):
     helper = object_tree.Helpers.child(0)
     object_tree.setGlobalMode(GlobalMode.WIREFRAME)
 
-    assert helper.checkState(NAME_COL) == Qt.Checked
+    assert helper.checkState(HELPER_COL) == Qt.Checked
     assert ctx.IsDisplayed(helper.ais)
 
 
@@ -2583,18 +2585,18 @@ def test_radio_click_after_unstash_still_drives_display_mode(main):
 
 def test_handle_checked_preserves_a_non_hidden_mode_when_still_checked(main):
     """
-    handleChecked fires on every itemChanged for a helper's NAME_COL, not
-    only genuine checkbox clicks (e.g. propertiesChanged's setData call on
-    the same column re-triggers it). It must not stomp an already non-HIDDEN
-    mode back to SHADED just because the box is (still) checked.
+    handleChecked fires on every itemChanged for a helper, not only genuine
+    checkbox clicks (e.g. propertiesChanged's setData call on NAME_COL
+    re-triggers it). It must not stomp an already non-HIDDEN mode back to
+    SHADED just because the box is (still) checked.
     """
-    from cq_editor.widgets.object_tree import NAME_COL
+    from cq_editor.widgets.object_tree import NAME_COL, HELPER_COL
 
     qtbot, win = main
 
     object_tree = win.components["object_tree"]
     helper = object_tree.Helpers.child(0)
-    assert helper.checkState(NAME_COL) == Qt.Checked
+    assert helper.checkState(HELPER_COL) == Qt.Checked
 
     helper.display_mode = DisplayMode.WIREFRAME
     object_tree.handleChecked(helper, NAME_COL)

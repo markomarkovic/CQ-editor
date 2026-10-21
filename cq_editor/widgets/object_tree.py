@@ -36,6 +36,7 @@ from ..display import (
     TRANSPARENT_COL,
     SHADED_COL,
     NAME_COL,
+    HELPER_COL,
 )
 from ..cq_utils import (
     make_AIS,
@@ -387,7 +388,7 @@ class ObjectTree(QWidget, ComponentMixin):
         header.setSectionResizeMode(NAME_COL, QHeaderView.Stretch)
 
         # forward itemChanged signal, but only for helpers - CQ objects are
-        # driven by their radios, and their NAME_COL carries no check state
+        # driven by their radios, and only helpers carry a check state
         tree.itemChanged.connect(self._forward_item_changed)
         # handle visibility changes from tree
         tree.itemChanged.connect(self.handleChecked)
@@ -526,8 +527,10 @@ class ObjectTree(QWidget, ComponentMixin):
 
             item = ObjectTreeItem(name, ais=line)
             self.Helpers.addChild(item)
+            item.setFirstColumnSpanned(True)
+            item.setText(HELPER_COL, name)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(NAME_COL, Qt.Checked)
+            item.setCheckState(HELPER_COL, Qt.Checked)
             self._helper_dirs.append((item, direction))
 
             ais_list.append(line)
@@ -947,7 +950,7 @@ class ObjectTree(QWidget, ComponentMixin):
         if item.parent() is not self.Helpers:
             return
 
-        if item.checkState(NAME_COL):
+        if item.checkState(HELPER_COL):
             if item.display_mode is DisplayMode.HIDDEN:
                 item.display_mode = DisplayMode.SHADED
         else:

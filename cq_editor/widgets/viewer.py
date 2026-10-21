@@ -32,7 +32,7 @@ from ..utils import layout, get_save_filename
 from ..mixins import ComponentMixin
 from ..icons import icon
 from ..cq_utils import to_occ_color, make_AIS, DEFAULT_FACE_COLOR
-from ..display import DisplayMode, GlobalMode, NAME_COL
+from ..display import DisplayMode, GlobalMode, HELPER_COL
 
 from .navigation_cube import RotationArrow
 from .occt_widget import OCCTWidget
@@ -363,7 +363,7 @@ class OCCViewer(QWidget, ComponentMixin):
             return
 
         ctx = self._get_context()
-        if item.checkState(NAME_COL):
+        if item.checkState(HELPER_COL):
             ctx.Display(item.ais, True)
         else:
             ctx.Erase(item.ais, True)
