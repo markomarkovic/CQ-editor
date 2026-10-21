@@ -370,7 +370,7 @@ def test_inspect(main):
 
     qtbot, win = main
 
-    # select the rendered object - three steps down past the "All" global row
+    # select the rendered object - three steps down past the global-mode row
     # and the CQ root
     obj_tree = win.components["object_tree"].tree
     qtbot.mouseClick(obj_tree, Qt.LeftButton)
@@ -1251,7 +1251,7 @@ def test_selection(main_multi, mocker):
     assert len(object_tree.tree.selectedItems()) == 1
 
     # go through different handleSelection paths
-    # one extra Down vs. before: the "All" global-mode row now precedes "CQ models"
+    # one extra Down vs. before: the global-mode row now precedes "CQ models"
     qtbot.mouseClick(object_tree.tree, Qt.LeftButton)
     qtbot.keyClick(object_tree.tree, Qt.Key_Down)
     qtbot.keyClick(object_tree.tree, Qt.Key_Down)
@@ -2594,6 +2594,23 @@ def test_radio_click_after_unstash_still_drives_display_mode(main):
     radio.click()
 
     assert item.display_mode is DisplayMode.TRANSPARENT
+
+
+def test_global_row_label_names_the_current_mode(main):
+    from cq_editor.widgets.object_tree import NAME_COL
+
+    qtbot, win = main
+
+    object_tree = win.components["object_tree"]
+    label = lambda: object_tree.GlobalItem.text(NAME_COL)
+
+    assert label() == "Global: As set below"
+
+    object_tree.setGlobalMode(GlobalMode.WIREFRAME)
+    assert label() == "Global: Wireframe"
+
+    object_tree.setGlobalMode(GlobalMode.AS_SET)
+    assert label() == "Global: As set below"
 
 
 def test_toolbar_click_updates_the_all_row_radios(main):

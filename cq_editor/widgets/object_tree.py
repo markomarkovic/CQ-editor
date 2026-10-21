@@ -310,8 +310,13 @@ class GlobalModeItem(ModeRadioMixin, TopTreeItem):
 
     def __init__(self, *args, **kwargs):
 
-        super(GlobalModeItem, self).__init__(["", "", "", "", "All"], *args, **kwargs)
+        super(GlobalModeItem, self).__init__(*args, **kwargs)
         self.setFlags(Qt.ItemIsEnabled)  # not selectable, no hover highlight
+
+    def set_mode_checked(self, mode):
+
+        super(GlobalModeItem, self).set_mode_checked(mode)
+        self.setText(NAME_COL, f"Global: {mode.value}")
 
 
 class ObjectTree(QWidget, ComponentMixin):
@@ -725,7 +730,7 @@ class ObjectTree(QWidget, ComponentMixin):
         self._global_mode = mode
 
         # Every route into the global mode lands here - the toolbar actions,
-        # the "All" row's own radios, and _handleObjectRadio's snap back to
+        # the global row's own radios, and _handleObjectRadio's snap back to
         # AS_SET - so this is the one place that can keep the row in sync.
         self.GlobalItem.set_mode_checked(mode)
 
