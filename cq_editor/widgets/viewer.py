@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QDialog, QTreeWidgetItem, QApplication, QAction
+from PyQt5.QtWidgets import QWidget, QDialog, QApplication, QAction
 
 from PyQt5.QtCore import pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QIcon
@@ -32,7 +32,7 @@ from ..utils import layout, get_save_filename
 from ..mixins import ComponentMixin
 from ..icons import icon
 from ..cq_utils import to_occ_color, make_AIS, DEFAULT_FACE_COLOR
-from ..display import DisplayMode, GlobalMode, HELPER_COL
+from ..display import DisplayMode, GlobalMode
 
 from .navigation_cube import RotationArrow
 from .occt_widget import OCCTWidget
@@ -356,17 +356,14 @@ class OCCViewer(QWidget, ComponentMixin):
         elif ais_list:
             context.UpdateCurrentViewer()
 
-    @pyqtSlot(QTreeWidgetItem, int)
-    def update_item(self, item, col):
-
-        if getattr(item, "ais", None) is None:
-            return
+    @pyqtSlot(object, bool)
+    def set_helper_visible(self, ais, visible):
 
         ctx = self._get_context()
-        if item.checkState(HELPER_COL):
-            ctx.Display(item.ais, True)
+        if visible:
+            ctx.Display(ais, True)
         else:
-            ctx.Erase(item.ais, True)
+            ctx.Erase(ais, True)
 
     @pyqtSlot(list)
     def redisplay(self, ais_list):

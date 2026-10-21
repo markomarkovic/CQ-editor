@@ -1259,6 +1259,11 @@ def test_selection(main_multi, mocker):
     qtbot.keyClick(object_tree.tree, Qt.Key_Down)
     qtbot.keyClick(object_tree.tree, Qt.Key_Down)
 
+    # helpers have their own tree, so an empty CQ root is the one row left
+    # with nothing to export
+    object_tree.removeObjects()
+    object_tree.tree.setCurrentItem(object_tree.CQ)
+
     assert object_tree._export_STL_action.isEnabled() == False
     assert object_tree._export_STEP_action.isEnabled() == False
     assert object_tree._clear_current_action.isEnabled() == False
@@ -2485,39 +2490,47 @@ def test_setting_the_mode_programmatically_updates_the_radios(main):
     assert not item.mode_group.button(SHADED_COL).isChecked()
 
 
-def test_helpers_keep_a_left_aligned_checkbox(main):
-    from cq_editor.widgets.object_tree import HELPER_COL
+def _helper_checkbox(object_tree, col):
 
+    container = object_tree.helpers_tree.itemWidget(object_tree.Helpers, col)
+    return container.layout().itemAt(0).widget()
+
+
+def test_helper_checkboxes_sit_under_their_axis_header(main):
     qtbot, win = main
 
     object_tree = win.components["object_tree"]
     viewer = win.components["viewer"]
     ctx = viewer._get_context()
 
-    helper = object_tree.Helpers.child(0)
-    assert helper.isFirstColumnSpanned()
-    assert helper.text(HELPER_COL) == "X"
-    assert helper.checkState(HELPER_COL) == Qt.Checked
-    assert ctx.IsDisplayed(helper.ais)
+    header_item = object_tree.helpers_tree.headerItem()
+    for col, name in enumerate("XYZ"):
+        line, _ = object_tree._helper_dirs[col]
+        checkbox = _helper_checkbox(object_tree, col)
 
-    helper.setCheckState(HELPER_COL, Qt.Unchecked)
-    assert not ctx.IsDisplayed(helper.ais)
+        assert header_item.text(col) == name
+        assert checkbox.isChecked()
+        assert ctx.IsDisplayed(line)
+
+        checkbox.click()
+        assert not ctx.IsDisplayed(line)
+
+        checkbox.click()
+        assert ctx.IsDisplayed(line)
 
 
 def test_global_override_does_not_touch_helpers(main):
-    from cq_editor.widgets.object_tree import HELPER_COL
-
     qtbot, win = main
 
     object_tree = win.components["object_tree"]
     viewer = win.components["viewer"]
     ctx = viewer._get_context()
 
-    helper = object_tree.Helpers.child(0)
+    line, _ = object_tree._helper_dirs[0]
     object_tree.setGlobalMode(GlobalMode.WIREFRAME)
 
-    assert helper.checkState(HELPER_COL) == Qt.Checked
-    assert ctx.IsDisplayed(helper.ais)
+    assert _helper_checkbox(object_tree, 0).isChecked()
+    assert ctx.IsDisplayed(line)
 
 
 def test_rerunning_the_script_does_not_leak_mode_radios(main):
@@ -2581,27 +2594,6 @@ def test_radio_click_after_unstash_still_drives_display_mode(main):
     radio.click()
 
     assert item.display_mode is DisplayMode.TRANSPARENT
-
-
-def test_handle_checked_preserves_a_non_hidden_mode_when_still_checked(main):
-    """
-    handleChecked fires on every itemChanged for a helper, not only genuine
-    checkbox clicks (e.g. propertiesChanged's setData call on NAME_COL
-    re-triggers it). It must not stomp an already non-HIDDEN mode back to
-    SHADED just because the box is (still) checked.
-    """
-    from cq_editor.widgets.object_tree import NAME_COL, HELPER_COL
-
-    qtbot, win = main
-
-    object_tree = win.components["object_tree"]
-    helper = object_tree.Helpers.child(0)
-    assert helper.checkState(HELPER_COL) == Qt.Checked
-
-    helper.display_mode = DisplayMode.WIREFRAME
-    object_tree.handleChecked(helper, NAME_COL)
-
-    assert helper.display_mode is DisplayMode.WIREFRAME
 
 
 def test_toolbar_click_updates_the_all_row_radios(main):

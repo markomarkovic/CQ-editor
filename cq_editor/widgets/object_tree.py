@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
     QRadioButton,
+    QCheckBox,
     QHeaderView,
     QHBoxLayout,
     QStyle,
@@ -36,7 +37,6 @@ from ..display import (
     TRANSPARENT_COL,
     SHADED_COL,
     NAME_COL,
-    HELPER_COL,
 )
 from ..cq_utils import (
     make_AIS,
@@ -76,6 +76,22 @@ MODE_COLUMN_ICONS = (
 )
 
 MODE_COLUMN_WIDTH = 26
+
+
+def centered(widget):
+    """
+    setItemWidget stretches its widget across the whole cell, which would pin
+    a radio's or checkbox's indicator to the cell's left edge. Wrapping it in
+    a container centres it, lining it up with the header above.
+    """
+
+    container = QWidget()
+    container.setToolTip(widget.toolTip())
+    box = QHBoxLayout(container)
+    box.setContentsMargins(0, 0, 0, 0)
+    box.addWidget(widget, 0, Qt.AlignCenter)
+
+    return container
 
 
 class CenteredIconHeader(QHeaderView):
@@ -140,16 +156,7 @@ class ModeRadioMixin(object):
             radio.setToolTip(tooltip)
             self.mode_group.addButton(radio, col)
 
-            # setItemWidget stretches its widget across the whole cell, which
-            # would pin each radio's indicator to the cell's left edge. Center
-            # the radio inside a container so the indicators line up with the
-            # centred header icons above them.
-            container = QWidget()
-            container.setToolTip(tooltip)
-            box = QHBoxLayout(container)
-            box.setContentsMargins(0, 0, 0, 0)
-            box.addWidget(radio, 0, Qt.AlignCenter)
-
+            container = centered(radio)
             tree.setItemWidget(self, col, container)
             self.mode_widgets.append(container)
 
@@ -299,13 +306,6 @@ class CQRootItem(TopTreeItem):
         super(CQRootItem, self).__init__(["CQ models"], *args, **kwargs)
 
 
-class HelpersRootItem(TopTreeItem):
-
-    def __init__(self, *args, **kwargs):
-
-        super(HelpersRootItem, self).__init__(["Helpers"], *args, **kwargs)
-
-
 class GlobalModeItem(ModeRadioMixin, TopTreeItem):
 
     def __init__(self, *args, **kwargs):
@@ -340,7 +340,7 @@ class ObjectTree(QWidget, ComponentMixin):
     sigObjectsRemoved = pyqtSignal(list)
     sigCQObjectSelected = pyqtSignal(object)
     sigAISObjectsSelected = pyqtSignal(list)
-    sigItemChanged = pyqtSignal(QTreeWidgetItem, int)
+    sigHelperToggled = pyqtSignal(object, bool)
     sigObjectPropertiesChanged = pyqtSignal()
     sigHelpersResized = pyqtSignal(list)
     sigDisplayModesChanged = pyqtSignal(list)
@@ -361,6 +361,25 @@ class ObjectTree(QWidget, ComponentMixin):
             self, selectionMode=QAbstractItemView.ExtendedSelection
         )
         self.properties_editor = ParameterTree(self)
+
+        # Helpers get their own tree: a single row with a checkbox per axis,
+        # centred under an X / Y / Z header like the mode radios above.
+        self.helpers_tree = helpers_tree = QTreeWidget(
+            self, selectionMode=QAbstractItemView.NoSelection
+        )
+        helpers_tree.setHeaderLabels(["X", "Y", "Z", "Helpers"])
+        helpers_tree.setRootIsDecorated(False)
+        # In a narrow panel a scrollbar would cover the single row.
+        helpers_tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        helpers_tree.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        helpers_header_item = helpers_tree.headerItem()
+        for col in range(3):
+            helpers_header_item.setTextAlignment(col, Qt.AlignCenter)
+            helpers_tree.header().setSectionResizeMode(col, QHeaderView.Fixed)
+            helpers_tree.setColumnWidth(col, MODE_COLUMN_WIDTH)
+        helpers_header_item.setTextAlignment(3, Qt.AlignLeft | Qt.AlignVCenter)
+        self.Helpers = QTreeWidgetItem(helpers_tree)
+        self.Helpers.setFlags(Qt.ItemIsEnabled)
 
         header = CenteredIconHeader(Qt.Horizontal, tree)
         tree.setHeader(header)
@@ -387,23 +406,14 @@ class ObjectTree(QWidget, ComponentMixin):
         header_item.setTextAlignment(NAME_COL, Qt.AlignLeft | Qt.AlignVCenter)
         header.setSectionResizeMode(NAME_COL, QHeaderView.Stretch)
 
-        # forward itemChanged signal, but only for helpers - CQ objects are
-        # driven by their radios, and only helpers carry a check state
-        tree.itemChanged.connect(self._forward_item_changed)
-        # handle visibility changes from tree
-        tree.itemChanged.connect(self.handleChecked)
-
         self.GlobalItem = GlobalModeItem()
         self.CQ = CQRootItem()
-        self.Helpers = HelpersRootItem()
 
         root = tree.invisibleRootItem()
         root.addChild(self.GlobalItem)
         root.addChild(self.CQ)
-        root.addChild(self.Helpers)
 
         self.CQ.setFirstColumnSpanned(True)
-        self.Helpers.setFirstColumnSpanned(True)
 
         self.GlobalItem.build_mode_radios(
             tree, GLOBAL_MODES, [m.value for m in GLOBAL_MODES]
@@ -471,10 +481,10 @@ class ObjectTree(QWidget, ComponentMixin):
             halfLen = 2.0 * bbox.CornerMin().Distance(bbox.CornerMax())
 
         resized = []
-        for item, direction in self._helper_dirs:
+        for line, direction in self._helper_dirs:
             p1, p2 = self._axis_points(direction, halfLen)
-            item.ais.SetPoints(p1, p2)  # update geometry in place
-            resized.append(item.ais)
+            line.SetPoints(p1, p2)  # update geometry in place
+            resized.append(line)
 
         if resized:
             self.sigHelpersResized.emit(resized)
@@ -491,8 +501,13 @@ class ObjectTree(QWidget, ComponentMixin):
 
     def prepareLayout(self):
 
+        # Helpers sit under the objects with no splitter handle between them:
+        # the helpers tree has a fixed height, and a splitter would leave the
+        # rest of its share as an empty gap.
+        trees = layout(self, (self.tree, self.helpers_tree), margin=0, spacing=4)
+
         self._splitter = splitter(
-            (self.tree, self.properties_editor),
+            (trees, self.properties_editor),
             stretch_factors=(2, 1),
             orientation=Qt.Vertical,
         )
@@ -514,26 +529,36 @@ class ObjectTree(QWidget, ComponentMixin):
 
     def addLines(self):
         ais_list = []
-        self._helper_dirs = []  # (item, direction) pairs, for later rescaling
+        self._helper_dirs = []  # (line, direction) pairs, for later rescaling
 
-        for name, color, direction in zip(
-            ("X", "Y", "Z"),
-            ("red", "lawngreen", "blue"),
-            ((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        for col, (name, color, direction) in enumerate(
+            zip(
+                ("X", "Y", "Z"),
+                ("red", "lawngreen", "blue"),
+                ((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+            )
         ):
             p1, p2 = self._axis_points(direction, DEFAULT_AXIS_HALF_LEN)
             line = AIS_Line(p1, p2)
             line.SetColor(to_occ_color(color))
 
-            item = ObjectTreeItem(name, ais=line)
-            self.Helpers.addChild(item)
-            item.setFirstColumnSpanned(True)
-            item.setText(HELPER_COL, name)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(HELPER_COL, Qt.Checked)
-            self._helper_dirs.append((item, direction))
+            checkbox = QCheckBox(toolTip=f"{name} axis", checked=True)
+            checkbox.toggled.connect(
+                lambda checked, line=line: self.sigHelperToggled.emit(line, checked)
+            )
+            self.helpers_tree.setItemWidget(self.Helpers, col, centered(checkbox))
+            self._helper_dirs.append((line, direction))
 
             ais_list.append(line)
+
+        # Exactly as tall as its row: the space goes to the objects tree, and a
+        # cramped panel cannot squeeze the checkboxes out of sight.
+        tree = self.helpers_tree
+        tree.setFixedHeight(
+            tree.header().sizeHint().height()
+            + tree.sizeHintForRow(0)
+            + 2 * tree.frameWidth()
+        )
 
         self.sigObjectsAdded.emit(ais_list)
 
@@ -719,11 +744,6 @@ class ObjectTree(QWidget, ComponentMixin):
 
         self.setGlobalMode(GlobalMode.AS_SET)
         item.display_mode = OBJECT_MODES[col]
-
-    def _forward_item_changed(self, item, col):
-
-        if item.parent() is self.Helpers:
-            self.sigItemChanged.emit(item, col)
 
     @pyqtSlot()
     def _apply_modes(self):
@@ -943,15 +963,3 @@ class ObjectTree(QWidget, ComponentMixin):
                 continue
             if any(ais.Shape().IsEqual(shape) for shape in shapes):
                 item.setSelected(True)
-
-    @pyqtSlot(QTreeWidgetItem, int)
-    def handleChecked(self, item, col):
-
-        if item.parent() is not self.Helpers:
-            return
-
-        if item.checkState(HELPER_COL):
-            if item.display_mode is DisplayMode.HIDDEN:
-                item.display_mode = DisplayMode.SHADED
-        else:
-            item.display_mode = DisplayMode.HIDDEN

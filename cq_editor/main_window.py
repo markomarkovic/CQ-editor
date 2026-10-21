@@ -236,14 +236,15 @@ class MainWindow(QMainWindow, MainMixin):
         self.toolbar.setPalette(p)
 
         # Fusion outlines radios and checkboxes in a darkened Window color,
-        # which vanishes against the dark Base, so lighten it for the tree
-        tree = self.components["object_tree"].tree
-        if self.preferences["Light/Dark Theme"] == "Dark":
-            tree_palette = tree.palette()
-            tree_palette.setColor(QPalette.Window, QColor(150, 150, 150))
-            tree.setPalette(tree_palette)
-        else:
-            tree.setPalette(QPalette())
+        # which vanishes against the dark Base, so lighten it for the trees
+        object_tree = self.components["object_tree"]
+        for tree in (object_tree.tree, object_tree.helpers_tree):
+            if self.preferences["Light/Dark Theme"] == "Dark":
+                tree_palette = tree.palette()
+                tree_palette.setColor(QPalette.Window, QColor(150, 150, 150))
+                tree.setPalette(tree_palette)
+            else:
+                tree.setPalette(QPalette())
 
     def closeEvent(self, event):
 
@@ -477,8 +478,8 @@ class MainWindow(QMainWindow, MainMixin):
         self.components["object_tree"].sigObjectsAdded[list, bool].connect(
             self.components["viewer"].display_many
         )
-        self.components["object_tree"].sigItemChanged.connect(
-            self.components["viewer"].update_item
+        self.components["object_tree"].sigHelperToggled.connect(
+            self.components["viewer"].set_helper_visible
         )
         self.components["object_tree"].sigObjectsRemoved.connect(
             self.components["viewer"].remove_items

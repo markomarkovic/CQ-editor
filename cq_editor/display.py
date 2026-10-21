@@ -32,6 +32,3 @@ def effective_mode(item: DisplayMode, glob: GlobalMode) -> DisplayMode:
 
 
 HIDDEN_COL, WIREFRAME_COL, TRANSPARENT_COL, SHADED_COL, NAME_COL = range(5)
-
-# Helpers span the whole row, so their checkbox and name live in column 0.
-HELPER_COL = 0
